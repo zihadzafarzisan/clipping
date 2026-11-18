@@ -30,6 +30,8 @@ In the app:
 
 Keep the app open while it processes. Local mode ranks spoken reactions and audio energy; it can miss silent visual moments and its titles are transcript excerpts. AI mode uses transcript context, not video understanding. Speech model accuracy varies with language, music, and overlapping speech. The default `small` multilingual model favors accuracy over startup time; choose `base` for a lighter model or `medium` for a larger one. Blank language detects automatically; use a language code such as `en`, `hi`, or `bn` when detection is unreliable. Captions preserve the spoken language; this version does not translate them.
 
+CPU transcription can run slower than real time: the one-minute mixed-language test took several minutes on this PC, and its caption wording still needed correction. Allow time for longer windows and assess caption quality before enabling unattended account uploads.
+
 ## Connect publishing accounts
 
 ### YouTube

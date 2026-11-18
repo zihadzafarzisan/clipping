@@ -24,7 +24,7 @@ Coverage includes:
 
 The supplied link `https://www.youtube.com/live/irNhWMG560k` resolved through yt-dlp as a completed, 35,278-second CarryisLive recording. Downloading the 20:00–21:00 window succeeded. Local speech recognition, timestamped captions, a 30-second vertical render, and an MP4/caption TikTok export package were produced without uploading to any account. Video dimensions, codecs, duration, and an extracted rendered frame were inspected.
 
-The first test with the `base` speech model produced weak captions on mixed Hindi commentary and English game dialogue. The default was changed to `small`, and automatic mode now re-detects language per segment rather than fixing the entire recording to the initial language. Captions and highlight choice still need assessment on representative content: no transcription accuracy or highlight-quality score is claimed.
+The first test with the `base` speech model produced weak captions on mixed Hindi commentary and English game dialogue. The default was changed to `small`, and automatic mode now re-detects language per segment rather than fixing the entire recording to the initial language. Reprocessing the downloaded sample with these settings also completed and produced a 30-second short; an extracted frame confirmed Devanagari text rendered successfully. Caption wording remained imperfect. CPU transcription of the one-minute sample took several minutes on this machine. No transcription accuracy or highlight-quality score is claimed.
 
 ## Verification limits
 
@@ -33,6 +33,6 @@ The first test with the `base` speech model produced weak captions on mixed Hind
 - Optional OpenAI highlight selection was implemented against the documented Responses API structured-output contract, but was not called without an API key.
 - Capture from an actively broadcasting stream was not exercised; the supplied link was a completed recording.
 - TikTok publication is not implemented. The completed artifact is a local upload package, never a claim that the clip was posted.
-- The GitHub workflow is configured; its remote result must be checked separately after pushing.
+- Both the branch push and pull-request GitHub Windows checks passed for commit `b0f735f`: dependency installation, dependency consistency, and all ten tests succeeded. [Push run](https://github.com/zihadzafarzisan/clipping/actions/runs/44412551688), [pull-request run](https://github.com/zihadzafarzisan/clipping/actions/runs/44412656768).
 
 Downloaded media, models, credentials, and rendered samples remain in ignored `data/` and are excluded from Git.
