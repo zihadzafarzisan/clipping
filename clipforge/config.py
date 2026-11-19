@@ -46,8 +46,10 @@ def protect(value: bytes, decrypt=False) -> bytes:
 class Settings:
     defaults = {
         "highlight_model": "gpt-6.2-sol", "whisper_model": "small",
-        "language": "", "facebook_page_id": "", "facebook_api_version": "v27.0",
+        "language": "", "subtitle_prompt": "",
+        "facebook_page_id": "", "facebook_api_version": "v27.0",
         "youtube_client_file": "", "youtube_privacy": "public",
+        "tiktok_client_key": "", "tiktok_post_mode": "inbox", "tiktok_privacy": "SELF_ONLY",
         "sample_link": "https://www.youtube.com/live/irNhWMG560k",
     }
 

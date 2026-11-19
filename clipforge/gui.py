@@ -12,7 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 from .config import DATA, Settings
 from .media import validate_source
 from .pipeline import Pipeline, safe_error, validate_options
-from .publish import check_facebook, connect_youtube
+from .publish import check_facebook, check_tiktok, check_youtube, connect_tiktok, connect_youtube
 from .store import Store
 
 BG = "#0e1420"
@@ -130,17 +130,24 @@ class App(tk.Tk):
             ttk.Label(box, text=name, style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
             ttk.Combobox(box, textvariable=variable, values=choices, state="readonly").pack(fill="x")
         publish_row = ttk.Frame(frame)
-        publish_row.pack(fill="x", pady=(18, 7))
-        ttk.Label(publish_row, text="POST AUTOMATICALLY", style="Muted.TLabel").pack(side="left", padx=(0, 20))
+        publish_row.pack(fill="x", pady=(14, 7))
+        self.engagement_only = tk.BooleanVar(value=True)
+        ttk.Checkbutton(publish_row, text="Only download high-engagement clips (Most Replayed heatmap / audio peaks)",
+                        variable=self.engagement_only).pack(anchor="w", pady=(0, 8))
+        dest_row = ttk.Frame(frame)
+        dest_row.pack(fill="x", pady=(0, 6))
+        ttk.Label(dest_row, text="POST AUTOMATICALLY", style="Muted.TLabel").pack(side="left", padx=(0, 20))
         self.youtube = tk.BooleanVar(value=False)
         self.facebook = tk.BooleanVar(value=False)
-        ttk.Checkbutton(publish_row, text="YouTube Shorts", variable=self.youtube).pack(side="left", padx=(0, 18))
-        ttk.Checkbutton(publish_row, text="Facebook Reels", variable=self.facebook).pack(side="left")
-        ttk.Label(frame, text="TikTok: an MP4 and caption file are exported for you to upload in TikTok Studio.", style="Muted.TLabel").pack(anchor="w")
+        self.tiktok = tk.BooleanVar(value=False)
+        ttk.Checkbutton(dest_row, text="YouTube Shorts", variable=self.youtube).pack(side="left", padx=(0, 18))
+        ttk.Checkbutton(dest_row, text="Facebook Reels", variable=self.facebook).pack(side="left", padx=(0, 18))
+        ttk.Checkbutton(dest_row, text="TikTok", variable=self.tiktok).pack(side="left")
+        ttk.Label(frame, text="TikTok also exports local MP4 + caption files as a backup in the job's tiktok folder.", style="Muted.TLabel").pack(anchor="w")
         action = ttk.Frame(frame)
-        action.pack(fill="x", pady=(15, 18))
+        action.pack(fill="x", pady=(14, 16))
         ttk.Button(action, text="Create shorts", style="Accent.TButton", command=self.create_job).pack(side="left")
-        ttk.Label(action, text="Selected accounts upload after rendering. Leave both unchecked to export only.", style="Muted.TLabel").pack(side="left", padx=16)
+        ttk.Label(action, text="Selected accounts upload after rendering. Leave unchecked to export only.", style="Muted.TLabel").pack(side="left", padx=16)
         ttk.Separator(frame).pack(fill="x", pady=(0, 12))
         ttk.Label(frame, text="JOBS", style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
         columns = ("status", "window", "message")
@@ -182,48 +189,66 @@ class App(tk.Tk):
     def build_settings(self):
         frame = self.settings_tab
         self.setting_vars, self.secret_vars = {}, {}
-        ttk.Label(frame, text="LOCAL TRANSCRIPTION", style="Muted.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 8))
-        entries = [("whisper_model", "Speech model", ["tiny", "base", "small", "medium"]),
-                   ("language", "Speech language (blank = detect)", None),
-                   ("highlight_model", "AI highlight model (optional)", None),
-                   ("youtube_client_file", "Google OAuth Desktop client JSON", None),
-                   ("youtube_privacy", "YouTube visibility", ["public", "unlisted", "private"]),
-                   ("facebook_page_id", "Facebook Page ID", None),
-                   ("facebook_api_version", "Facebook API version", None)]
-        for row, (key, label, values) in enumerate(entries, 1):
-            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", pady=7, padx=(0, 15))
+        ttk.Label(frame, text="TRANSCRIPTION & PUBLISHING ACCOUNTS", style="Muted.TLabel").grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 6))
+        entries = [
+            ("whisper_model", "Speech model", ["tiny", "base", "small", "medium", "large-v3-turbo"], True),
+            ("language", "Speech language (blank=auto, hinglish, hi-en)", ["", "hinglish", "hi-en", "hi", "en", "bn"], False),
+            ("subtitle_prompt", "Subtitle prompt (optional vocabulary hint)", None, False),
+            ("highlight_model", "AI highlight model (optional)", None, False),
+            ("youtube_client_file", "Google OAuth Desktop client JSON", None, False),
+            ("youtube_privacy", "YouTube visibility", ["public", "unlisted", "private"], True),
+            ("facebook_page_id", "Facebook Page ID", None, False),
+            ("facebook_api_version", "Facebook API version", None, False),
+            ("tiktok_client_key", "TikTok Client Key", None, False),
+            ("tiktok_post_mode", "TikTok post mode (inbox=draft, direct=publish)", ["inbox", "direct"], True),
+            ("tiktok_privacy", "TikTok privacy", ["SELF_ONLY", "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR"], True),
+        ]
+        for row, (key, label, values, readonly) in enumerate(entries, 1):
+            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", pady=3, padx=(0, 14))
             var = tk.StringVar(value=self.settings.get(key))
             self.setting_vars[key] = var
-            control = ttk.Combobox(frame, textvariable=var, values=values, state="readonly") if values else ttk.Entry(frame, textvariable=var)
-            control.grid(row=row, column=1, sticky="ew", pady=5)
+            if values is not None:
+                state = "readonly" if readonly else "normal"
+                control = ttk.Combobox(frame, textvariable=var, values=values, state=state)
+            else:
+                control = ttk.Entry(frame, textvariable=var)
+            control.grid(row=row, column=1, sticky="ew", pady=3)
             if key == "youtube_client_file":
-                ttk.Button(frame, text="Browse", command=self.choose_google_client).grid(row=row, column=2, padx=9)
+                ttk.Button(frame, text="Browse", command=self.choose_google_client).grid(row=row, column=2, padx=8)
         row = len(entries) + 1
-        for key, label in (("openai_api_key", "OpenAI API key (AI mode only)"), ("facebook_page_token", "Facebook Page access token")):
-            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", pady=7, padx=(0, 15))
+        secret_entries = (
+            ("openai_api_key", "OpenAI API key (AI mode only)"),
+            ("facebook_page_token", "Facebook Page access token"),
+            ("tiktok_client_secret", "TikTok Client Secret"),
+            ("tiktok_access_token", "TikTok access token (or use Connect TikTok)"),
+        )
+        for key, label in secret_entries:
+            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", pady=3, padx=(0, 14))
             var = tk.StringVar(value=self.settings.secret(key))
             self.secret_vars[key] = var
-            ttk.Entry(frame, textvariable=var, show="•").grid(row=row, column=1, sticky="ew", pady=5)
+            ttk.Entry(frame, textvariable=var, show="•").grid(row=row, column=1, sticky="ew", pady=3)
             row += 1
         frame.columnconfigure(1, weight=1)
         controls = ttk.Frame(frame)
-        controls.grid(row=row, column=0, columnspan=3, sticky="w", pady=14)
-        ttk.Button(controls, text="Save settings", style="Accent.TButton", command=self.save_settings).pack(side="left", padx=(0, 10))
-        ttk.Button(controls, text="Connect YouTube", command=self.connect_google).pack(side="left", padx=(0, 10))
-        ttk.Button(controls, text="Check Facebook Page", command=self.check_meta).pack(side="left")
+        controls.grid(row=row, column=0, columnspan=3, sticky="w", pady=10)
+        ttk.Button(controls, text="Save settings", style="Accent.TButton", command=self.save_settings).pack(side="left", padx=(0, 8))
+        ttk.Button(controls, text="Connect YouTube", command=self.connect_google).pack(side="left", padx=(0, 8))
+        ttk.Button(controls, text="Check YouTube", command=self.check_google).pack(side="left", padx=(0, 8))
+        ttk.Button(controls, text="Check Facebook", command=self.check_meta).pack(side="left", padx=(0, 8))
+        ttk.Button(controls, text="Connect TikTok", command=self.connect_tt).pack(side="left", padx=(0, 8))
+        ttk.Button(controls, text="Check TikTok", command=self.check_tt).pack(side="left")
         self.account_status = tk.StringVar(value=self.connection_status())
-        ttk.Label(frame, textvariable=self.account_status, wraplength=950, style="Muted.TLabel").grid(row=row+1, column=0, columnspan=3, sticky="w", pady=7)
-        ttk.Label(frame, text="Speech runs on this PC. AI highlight mode sends the transcript to OpenAI and uses API billing.\n"
-                  "Credentials saved by this app are encrypted for your Windows user. Keep this folder on this PC.\n"
-                  "Facebook publishing uses a Page access token with pages_show_list, pages_read_engagement, and pages_manage_posts.\n"
-                  "TikTok exports are always available; the app does not claim unattended TikTok publication.",
-                  wraplength=950, style="Muted.TLabel").grid(row=row+2, column=0, columnspan=3, sticky="w", pady=12)
+        ttk.Label(frame, textvariable=self.account_status, wraplength=950, style="Muted.TLabel").grid(row=row+1, column=0, columnspan=3, sticky="w", pady=4)
+        ttk.Label(frame, text="Speech runs locally. Use 'hinglish' for Romanized Hindi+English, 'hi-en' for Devanagari+English, or blank for auto.\n"
+                  "Credentials are encrypted with Windows DPAPI. TikTok supports Content Posting API (inbox draft or direct) plus local export.",
+                  wraplength=950, style="Muted.TLabel").grid(row=row+2, column=0, columnspan=3, sticky="w", pady=6)
         ttk.Button(frame, text="Open setup guide", command=lambda: open_path(Path(__file__).resolve().parent.parent / "README.md")).grid(row=row+3, column=0, sticky="w")
 
     def connection_status(self):
         yt = "connected" if self.settings.secret("youtube_credentials") else "not connected"
         fb = "token saved; verify access" if self.settings.secret("facebook_page_token") else "not connected"
-        return f"YouTube: {yt}   ·   Facebook: {fb}   ·   TikTok: export only"
+        tt = "connected" if (self.settings.secret("tiktok_access_token") or self.settings.secret("tiktok_refresh_token")) else "export only"
+        return f"YouTube: {yt}   ·   Facebook: {fb}   ·   TikTok: {tt}"
 
     def choose_file(self):
         path = filedialog.askopenfilename(filetypes=[("Video", "*.mp4 *.mkv *.mov *.webm *.ts"), ("All files", "*.*")])
@@ -257,10 +282,25 @@ class App(tk.Tk):
         self.account_status.set("Complete the YouTube authorization in your browser.")
         self.background(lambda: connect_youtube(self.settings), "YouTube connected")
 
+    def check_google(self):
+        self.save_settings(notify=False)
+        self.account_status.set("Checking YouTube channel access…")
+        self.background(lambda: check_youtube(self.settings), "YouTube channel accessible")
+
     def check_meta(self):
         self.save_settings(notify=False)
         self.account_status.set("Checking Facebook Page access…")
         self.background(lambda: check_facebook(self.settings), "Facebook Page accessible")
+
+    def connect_tt(self):
+        self.save_settings(notify=False)
+        self.account_status.set("Complete the TikTok authorization in your browser.")
+        self.background(lambda: connect_tiktok(self.settings), "TikTok connected")
+
+    def check_tt(self):
+        self.save_settings(notify=False)
+        self.account_status.set("Checking TikTok creator account…")
+        self.background(lambda: check_tiktok(self.settings), "TikTok account accessible")
 
     def create_job(self):
         try:
@@ -269,7 +309,10 @@ class App(tk.Tk):
             options = {key: variable.get() for key, variable in self.option_vars.items()}
             options.update(layout="fit" if self.layout.get().startswith("Full") else "crop",
                 highlight_mode="local" if self.mode.get().startswith("Local") else "ai",
-                destinations=(["youtube"] if self.youtube.get() else []) + (["facebook"] if self.facebook.get() else []))
+                engagement_only=bool(self.engagement_only.get()),
+                destinations=(["youtube"] if self.youtube.get() else [])
+                + (["facebook"] if self.facebook.get() else [])
+                + (["tiktok"] if self.tiktok.get() else []))
             options = validate_options(options)
             self.pipeline.validate_connections(options)
             job_id = self.store.create(source, options)

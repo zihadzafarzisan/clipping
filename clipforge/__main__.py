@@ -18,8 +18,10 @@ def main():
     run_parser.add_argument("--seconds", type=int, default=40)
     run_parser.add_argument("--mode", choices=["local", "ai"], default="local")
     run_parser.add_argument("--layout", choices=["fit", "crop"], default="fit")
-    run_parser.add_argument("--post", nargs="*", choices=["youtube", "facebook"], default=[])
-    inspect = sub.add_parser("inspect", help="Check a link without downloading the video")
+    run_parser.add_argument("--full-window", action="store_true",
+                            help="Download the full capture window instead of only high-engagement clips")
+    run_parser.add_argument("--post", nargs="*", choices=["youtube", "facebook", "tiktok"], default=[])
+    inspect = sub.add_parser("inspect", help="Check a link and preview high-engagement moments without downloading")
     inspect.add_argument("source")
     resume = sub.add_parser("resume", help="Resume a failed/cancelled/interrupted job")
     resume.add_argument("job_id")
@@ -29,10 +31,13 @@ def main():
     args = parser.parse_args()
     from .config import DATA, Settings
     from .store import Store
-    from . import media
+    from . import highlights, media
     if args.command == "inspect":
         info = media.inspect_source(args.source)
-        print(json.dumps({key: info.get(key) for key in ("title", "uploader", "duration", "live_status")}, indent=2))
+        peaks = highlights.select_engagement_windows(info, 5, 40)
+        summary = {key: info.get(key) for key in ("title", "uploader", "duration", "live_status")}
+        summary["engagement_peaks"] = [{"start": p["start"], "end": p["end"], "score": p["score"], "title": p["title"]} for p in peaks]
+        print(json.dumps(summary, indent=2, ensure_ascii=False))
     elif args.command == "status":
         for job in Store().jobs():
             print(f"{job['id']}  {job['status']:14}  {job['message']}")
@@ -71,7 +76,7 @@ def process_run(args):
     else:
         options = validate_options({"minutes": args.minutes, "start_minutes": args.start_minutes,
             "clip_count": args.clips, "clip_seconds": args.seconds, "highlight_mode": args.mode,
-            "layout": args.layout, "destinations": args.post})
+            "layout": args.layout, "engagement_only": not args.full_window, "destinations": args.post})
         media.validate_source(args.source)
         pipeline.validate_connections(options)
         job_id = store.create(args.source, options)

@@ -4,10 +4,13 @@ Verified locally on Windows with Python 3.14 on November 19, 2026.
 
 ## Automated checks
 
-`python -m unittest discover -s tests -v`: **10 tests passed**.
+`python -m unittest discover -s tests -v`: **23 tests passed**.
 
 Coverage includes:
 
+- Engagement-only selective downloading: YouTube heatmap peak selection, non-overlapping bounds, low-engagement filtering, audio-energy spike fallback, partial section downloading (verifying full video is never downloaded), and end-to-end engagement-segment pipeline execution.
+- Mixed Hindi/English (Hinglish) subtitles: `hinglish` and `hi-en` Whisper decoding parameters, low-confidence and stutter-loop hallucination filtering, punctuation-aware subtitle grouping, automatic `Nirmala UI` font selection for Devanagari text, and Hindi/Hinglish highlight keyword scoring.
+- TikTok Content Posting API v2: Creator Inbox and Direct Post init/chunked PUT/status polling, untrusted upload host rejection, creator info check, and pipeline auto-publishing.
 - Atomic claiming of queued jobs across competing threads.
 - Subtitle offsets at clip boundaries and escaping of ASS control characters.
 - Highlight bounds, overlapping candidates, and non-finite timestamps.
@@ -18,7 +21,7 @@ Coverage includes:
 - A real FFmpeg render, read back with PyAV: 1080 × 1920 H.264, 30 fps, AAC at 48 kHz, expected duration, and subtitle sidecars.
 - PCM-waveform transcription input, cached model loading, and per-segment language detection for mixed-language streams.
 
-`python -m pip check`: **passed**. Python bytecode compilation also passed.
+`python -m pip check`: **passed**.
 
 ## Source-link smoke test
 

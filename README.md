@@ -5,15 +5,16 @@ Paste a stream/video link, create subtitled vertical shorts, and upload to conne
 ## What works
 
 - YouTube, Twitch, Kick, Facebook, and TikTok links supported through yt-dlp, plus local recordings. Availability depends on the source being public and downloadable; site restrictions can prevent capture.
-- Bounded recording of supported live feeds from the live edge; selection of a time window from completed recordings. A job processes **one window**, not an entire stream continuously.
-- Local multilingual speech recognition with real word timestamps (faster-whisper, CPU/int8). The first run downloads a speech model into `data/models`.
-- Automatic highlight selection using speech/audio signals, or optional OpenAI transcript analysis.
+- **Engagement-only downloading (default):** Before downloading video, ClipForge inspects YouTube's "Most Replayed" engagement heatmap (or falls back to a lightweight audio-only energy scan for VODs without heatmaps) and **only downloads the high-engagement clip sections** — saving bandwidth, disk space, and transcription time. Use `--full-window` (or uncheck the option in the UI) to download a full fixed time window instead.
+- Bounded recording of supported live feeds from the live edge; selection of a time window from completed recordings.
+- Local multilingual speech recognition with real word timestamps (faster-whisper, CPU/int8) plus speech-conditioned audio preprocessing, hallucination filtering, punctuation-aware captions, and automatic `Nirmala UI` font selection for Devanagari/Indic scripts. Includes dedicated **`hinglish`** (Romanized Hindi+English) and **`hi-en`** (Devanagari+English) modes alongside automatic detection, and supports `tiny`, `base`, `small`, `medium`, and `large-v3-turbo` models.
+- Automatic highlight selection using speech/audio signals (including English, Hinglish, and Hindi reaction cues), or optional OpenAI transcript analysis.
 - 1080 × 1920 H.264/AAC MP4s, burned-in phrase subtitles, editable SRT/ASS sidecars, and creator/source attribution.
 - Full gameplay over a blurred background, or a center crop. These are fixed layouts; there is no automatic face/gameplay tracking.
-- Automatic YouTube upload and Facebook **Page** Reels publication after account setup and enabling the destination for the job.
+- Automatic **YouTube Shorts** upload, **Facebook Page Reels** publication, and **TikTok Content Posting API v2** upload (Creator Inbox draft or Direct Post) after account setup and enabling the destination for the job.
 - Persistent jobs, saved transcription/rendering checkpoints, cancellation, and per-platform publishing status. Interrupted/uncertain uploads are held for checking rather than blindly reposted.
 
-**TikTok is export-only in this version.** Every short gets an MP4 and caption file under the job's `tiktok` folder. Use **Open TikTok upload** and **Copy caption** in the clip library to finish posting. The app does not offer or claim unattended TikTok publication. TikTok's official posting guidelines require user control/upload consent, and exclude arbitrary cross-platform copying and private account-management utilities. An audited API client alone does not resolve those intended-use restrictions. [TikTok guidelines](https://developers.tiktok.com/docs/en/content-sharing-guidelines)
+Every short also gets a local MP4 and caption backup under the job's `tiktok` folder so you can always use **Open TikTok upload** and **Copy caption** in the clip library even without connecting the TikTok API.
 
 ## Start on Windows
 
@@ -48,7 +49,14 @@ OAuth consent is not a publication: uploading begins only when a job has YouTube
 
 Use a **Facebook Page**, rather than a personal profile. Configure a Meta app and obtain a Page access token from a user with the Page's `CREATE_CONTENT` task. Meta documents `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts` for Reels publishing; production access may require app review and the appropriate access level.
 
-Save your Page ID and Page access token in Settings, then click **Check Facebook Page**. This confirms Page read access; actual publishing permissions are exercised on upload. Enable **Facebook Reels** for jobs that should publish automatically. The default Graph API version is `v27.0`; update it when required. Expired/revoked tokens need replacement. The connector waits for video processing and publication status; an uncertain result retains the remote video ID for investigation. [Meta Reels publishing guide](https://developers.facebook.com/documentation/video-api/guides/reels-publishing)
+Save your Page ID and Page access token in Settings, then click **Check Facebook**. This confirms Page read access; actual publishing permissions are exercised on upload. Enable **Facebook Reels** for jobs that should publish automatically. The default Graph API version is `v27.0`; update it when required. Expired/revoked tokens need replacement. The connector waits for video processing and publication status; an uncertain result retains the remote video ID for investigation. [Meta Reels publishing guide](https://developers.facebook.com/documentation/video-api/guides/reels-publishing)
+
+### TikTok
+
+1. Create an app in the [TikTok Developer Portal](https://developers.tiktok.com/) with **Content Posting API** enabled (`video.upload` and `video.publish` scopes) and redirect URI `http://127.0.0.1:8765/callback`.
+2. Enter your **TikTok Client Key** and **TikTok Client Secret** in Settings, choose **inbox** (draft in TikTok Creator Inbox, recommended) or **direct** (direct post), and select a privacy level (`SELF_ONLY` is required for unaudited/sandbox apps).
+3. Click **Connect TikTok** to authorize in your browser, or paste an existing access token and click **Check TikTok**.
+4. Enable **TikTok** for jobs that should upload automatically. Local MP4 + caption backups are still exported to the job's `tiktok` folder.
 
 ### Optional AI highlight selection
 
@@ -63,14 +71,17 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m clipforge
 
-# Check availability without downloading the video.
+# Check availability and preview high-engagement peaks without downloading video.
 .\.venv\Scripts\python.exe -m clipforge inspect "https://www.youtube.com/live/irNhWMG560k"
 
-# Process 10 minutes from minute 20 of a recording; no account upload.
-.\.venv\Scripts\python.exe -m clipforge run "https://www.youtube.com/live/irNhWMG560k" --start-minutes 20 --minutes 10 --clips 3 --seconds 40
+# Download ONLY high-engagement clips (default) and create 3 shorts.
+.\.venv\Scripts\python.exe -m clipforge run "https://www.youtube.com/live/irNhWMG560k" --clips 3 --seconds 40
+
+# Or download a fixed 10-minute window starting at minute 20.
+.\.venv\Scripts\python.exe -m clipforge run "https://www.youtube.com/live/irNhWMG560k" --full-window --start-minutes 20 --minutes 10 --clips 3 --seconds 40
 
 # After connecting accounts, opt in to automatic publication.
-.\.venv\Scripts\python.exe -m clipforge run "VIDEO_URL" --minutes 10 --post youtube facebook
+.\.venv\Scripts\python.exe -m clipforge run "VIDEO_URL" --clips 3 --post youtube facebook tiktok
 
 # Synthetic rendering check; does not download media or post anything.
 .\.venv\Scripts\python.exe -m clipforge demo
